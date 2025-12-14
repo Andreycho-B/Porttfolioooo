@@ -30,9 +30,9 @@ export function Navbar() {
     return (
         <nav
             className={cn(
-                "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-                isScrolled
-                    ? "bg-background/60 backdrop-blur-xl border-b border-white/5 py-4 shadow-sm supports-[backdrop-filter]:bg-background/60"
+                "fixed top-0 left-0 right-0 z-[100] transition-all duration-300",
+                isScrolled || isOpen
+                    ? "bg-background/80 backdrop-blur-md border-b border-white/5 py-4 shadow-sm"
                     : "bg-transparent py-6"
             )}
         >
@@ -70,7 +70,7 @@ export function Navbar() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="md:hidden bg-background border-b border-white/10 overflow-hidden"
+                        className="md:hidden bg-background/95 backdrop-blur-xl border-b border-white/10 overflow-hidden"
                     >
                         <div className="flex flex-col p-6 space-y-4">
                             {navLinks.map((link) => (
