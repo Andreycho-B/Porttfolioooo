@@ -81,7 +81,7 @@ export function Hero() {
                         transition={{ duration: 0.8, delay: 0.5 }}
                         className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-20 pb-12"
                     >
-                        <Link href="#contacto">
+                        <Link href="/contacto">
                             <button className="h-14 px-8 rounded-full bg-foreground text-background font-semibold hover:opacity-90 transition-all flex items-center gap-2 group shadow-lg shadow-foreground/10">
                                 Hablemos de tu Proyecto
                                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
