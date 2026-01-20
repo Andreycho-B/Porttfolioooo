@@ -358,8 +358,8 @@ export default function OrderBotDemo() {
                                             size="sm"
                                             className="h-8 w-8 rounded-full bg-orange-500 hover:bg-orange-600 p-0 shadow-lg shadow-orange-500/30"
                                             onClick={() => {
-                                                addToCart(msg.data);
-                                                handleSend(`¡Sí, agrega ${msg.data.name}!`);
+                                                addToCart(msg.data as MenuItem);
+                                                handleSend(`¡Sí, agrega ${(msg.data as MenuItem).name}!`);
                                             }}
                                         >
                                             <Plus size={16} />
