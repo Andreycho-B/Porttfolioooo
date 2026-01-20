@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Bot, User, Utensils, ShoppingBag, Receipt, ChefHat, Plus, Minus, X, Coffee, IceCream, Flame } from "lucide-react";
+import { ArrowLeft, Send, Bot, Utensils, ShoppingBag, Receipt, ChefHat, Plus, Minus, Coffee, IceCream, Flame, LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 // --- Types ---
 
@@ -30,7 +30,8 @@ type Message = {
     content: string;
     timestamp: Date;
     type?: 'text' | 'menu_grid' | 'bill' | 'upsell' | 'product_list';
-    data?: any; // For flexible payload (e.g. list of items to show)
+    data?: MenuItem | MenuItem[]; // For flexible payload (e.g. list of items to show)
+    isBill?: boolean;
 };
 
 // --- Data ---
@@ -46,7 +47,7 @@ const MENU_ITEMS: MenuItem[] = [
     { id: 'e1', name: 'McFlurry Oreo', price: 7500, category: 'desserts', keywords: ['helado', 'postre', 'oreo'], description: 'Helado cremoso con galleta.' },
 ];
 
-const CATEGORIES: { id: Category; label: string; icon: any }[] = [
+const CATEGORIES: { id: Category; label: string; icon: LucideIcon }[] = [
     { id: 'combos', label: 'Combos', icon: Flame },
     { id: 'sides', label: 'Acompañantes', icon: Utensils },
     { id: 'drinks', label: 'Bebidas', icon: Coffee },
@@ -86,6 +87,92 @@ const isMatch = (input: string, keyword: string) => {
     return input.split(' ').some(word => levenshtein(word, keyword) <= threshold);
 };
 
+const getAIResponse = (input: string, cart: OrderItem[], addToCart: (item: MenuItem) => void): Partial<Message> => {
+    const lower = input.toLowerCase();
+
+    // 1. Menu Grid Intent (Show Categories)
+    // Exclude strict category names to avoid conflict with Category View
+    const isCategoryRequest = ['combos', 'acompañantes', 'bebidas', 'postres'].some(c => isMatch(lower, c));
+    if (['menu', 'menú', 'ver', 'carta', 'lista'].some(k => isMatch(lower, k)) && !isCategoryRequest) {
+        return {
+            content: "¡Nuestra carta está buenísima! Aquí tienes las categorías principales:",
+            type: 'menu_grid'
+        };
+    }
+
+    // 2. Category View Intent (Show specific items e.g. "Muéstrame Combos")
+    const categoryMap: { [key: string]: Category } = {
+        'combos': 'combos', 'cajas': 'combos', 'baldes': 'combos',
+        'acompañantes': 'sides', 'papas': 'sides', 'lados': 'sides',
+        'bebidas': 'drinks', 'jugos': 'drinks', 'refrescos': 'drinks', 'tomar': 'drinks',
+        'postres': 'desserts', 'helados': 'desserts', 'dulce': 'desserts'
+    };
+
+    const foundCategoryKeyword = Object.keys(categoryMap).find(k => isMatch(lower, k));
+    if (foundCategoryKeyword) {
+        const catId = categoryMap[foundCategoryKeyword];
+        const items = MENU_ITEMS.filter(i => i.category === catId);
+        const catLabel = CATEGORIES.find(c => c.id === catId)?.label;
+
+        return {
+            content: `Aquí tienes nuestros ${catLabel} más deliciosos:`,
+            type: 'product_list',
+            data: items
+        };
+    }
+
+    // 3. Add to Cart Intent (Product Logic)
+    const detected: string[] = [];
+    MENU_ITEMS.forEach(item => {
+        if (item.keywords.some(k => isMatch(lower, k))) {
+            addToCart(item);
+            detected.push(item.name);
+        }
+    });
+
+    if (detected.length > 0) {
+        // Upselling: If ordered combo but no drink
+        const hasDrink = cart.some(i => i.category === 'drinks') || detected.some(name => MENU_ITEMS.find(i => i.name === name)?.category === 'drinks');
+
+        if (!hasDrink && Math.random() > 0.3) {
+            const drinkSuggestion = MENU_ITEMS.find(i => i.id === 'd2');
+            return {
+                content: `Agregué ${detected.join(', ')} a tu pedido. 🛒\n\n¿Te gustaría agregar una **${drinkSuggestion?.name}** para acompañar?`,
+                type: 'upsell',
+                data: drinkSuggestion
+            };
+        }
+        return { content: `¡Listo! Agregué ${detected.join(', ')}. ¿Algo más?` };
+    }
+
+    // 4. Checkout / Bill
+    if (['cuenta', 'pagar', 'total', 'fin', 'listo'].some(k => isMatch(lower, k))) {
+        if (cart.length === 0) return { content: "Tu carrito está vacío. ¡Antójate de algo del menú primero!" };
+        return { content: "¡Excelente! Aquí tienes el resumen de tu pedido:", type: 'bill' };
+    }
+
+    // 5. Cart Status
+    if (['carrito', 'llevo', 'cesta'].some(k => isMatch(lower, k))) {
+        if (cart.length === 0) return { content: "Aún no tienes nada en el carrito." };
+        return { content: "Esto es lo que llevas hasta ahora:", type: 'bill' };
+    }
+
+    // 6. Recommend
+    if (['recomienda', 'recomiéndame', 'recomiendame', 'sugerencia', 'top', 'favorito', 'algo'].some(k => isMatch(lower, k))) {
+        const randomItem = MENU_ITEMS[Math.floor(Math.random() * MENU_ITEMS.length)];
+        return {
+            content: `¡El **${randomItem.name}** es el favorito del Chef hoy! 👨‍🍳\n¿Te lo pido?`,
+            type: 'upsell',
+            data: randomItem
+        };
+    }
+
+    // Fallback
+    return { content: "No estoy seguro de qué es eso. 🤔 Intenta pedir 'Ver menú' o nombra el producto (ej. 'Combo Picante')." };
+};
+
+const randomDelay = () => 800 + Math.random() * 700;
+
 export default function OrderBotDemo() {
     const [prompt, setPrompt] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -121,90 +208,6 @@ export default function OrderBotDemo() {
         }).filter(i => i.qty > 0));
     };
 
-    const getAIResponse = (input: string): Partial<Message> => {
-        const lower = input.toLowerCase();
-
-        // 1. Menu Grid Intent (Show Categories)
-        // Exclude strict category names to avoid conflict with Category View
-        const isCategoryRequest = ['combos', 'acompañantes', 'bebidas', 'postres'].some(c => isMatch(lower, c));
-        if (['menu', 'menú', 'ver', 'carta', 'lista'].some(k => isMatch(lower, k)) && !isCategoryRequest) {
-            return {
-                content: "¡Nuestra carta está buenísima! Aquí tienes las categorías principales:",
-                type: 'menu_grid'
-            };
-        }
-
-        // 2. Category View Intent (Show specific items e.g. "Muéstrame Combos")
-        const categoryMap: { [key: string]: Category } = {
-            'combos': 'combos', 'cajas': 'combos', 'baldes': 'combos',
-            'acompañantes': 'sides', 'papas': 'sides', 'lados': 'sides',
-            'bebidas': 'drinks', 'jugos': 'drinks', 'refrescos': 'drinks', 'tomar': 'drinks',
-            'postres': 'desserts', 'helados': 'desserts', 'dulce': 'desserts'
-        };
-
-        const foundCategoryKeyword = Object.keys(categoryMap).find(k => isMatch(lower, k));
-        if (foundCategoryKeyword) {
-            const catId = categoryMap[foundCategoryKeyword];
-            const items = MENU_ITEMS.filter(i => i.category === catId);
-            const catLabel = CATEGORIES.find(c => c.id === catId)?.label;
-
-            return {
-                content: `Aquí tienes nuestros ${catLabel} más deliciosos:`,
-                type: 'product_list',
-                data: items
-            };
-        }
-
-        // 3. Add to Cart Intent (Product Logic)
-        let detected: string[] = [];
-        MENU_ITEMS.forEach(item => {
-            if (item.keywords.some(k => isMatch(lower, k))) {
-                addToCart(item);
-                detected.push(item.name);
-            }
-        });
-
-        if (detected.length > 0) {
-            // Upselling: If ordered combo but no drink
-            const hasDrink = cart.some(i => i.category === 'drinks') || detected.some(name => MENU_ITEMS.find(i => i.name === name)?.category === 'drinks');
-
-            if (!hasDrink && Math.random() > 0.3) {
-                const drinkSuggestion = MENU_ITEMS.find(i => i.id === 'd2');
-                return {
-                    content: `Agregué ${detected.join(', ')} a tu pedido. 🛒\n\n¿Te gustaría agregar una **${drinkSuggestion?.name}** para acompañar?`,
-                    type: 'upsell',
-                    data: drinkSuggestion
-                };
-            }
-            return { content: `¡Listo! Agregué ${detected.join(', ')}. ¿Algo más?` };
-        }
-
-        // 4. Checkout / Bill
-        if (['cuenta', 'pagar', 'total', 'fin', 'listo'].some(k => isMatch(lower, k))) {
-            if (cart.length === 0) return { content: "Tu carrito está vacío. ¡Antójate de algo del menú primero!" };
-            return { content: "¡Excelente! Aquí tienes el resumen de tu pedido:", type: 'bill' };
-        }
-
-        // 5. Cart Status
-        if (['carrito', 'llevo', 'cesta'].some(k => isMatch(lower, k))) {
-            if (cart.length === 0) return { content: "Aún no tienes nada en el carrito." };
-            return { content: "Esto es lo que llevas hasta ahora:", type: 'bill' };
-        }
-
-        // 6. Recommend
-        if (['recomienda', 'recomiéndame', 'recomiendame', 'sugerencia', 'top', 'favorito', 'algo'].some(k => isMatch(lower, k))) {
-            const randomItem = MENU_ITEMS[Math.floor(Math.random() * MENU_ITEMS.length)];
-            return {
-                content: `¡El **${randomItem.name}** es el favorito del Chef hoy! 👨‍🍳\n¿Te lo pido?`,
-                type: 'upsell',
-                data: randomItem
-            };
-        }
-
-        // Fallback
-        return { content: "No estoy seguro de qué es eso. 🤔 Intenta pedir 'Ver menú' o nombra el producto (ej. 'Combo Picante')." };
-    };
-
     const handleSend = (text: string = prompt) => {
         if (!text.trim()) return;
         setPrompt("");
@@ -219,7 +222,7 @@ export default function OrderBotDemo() {
         setIsTyping(true);
 
         setTimeout(() => {
-            const response = getAIResponse(text);
+            const response = getAIResponse(text, cart, addToCart);
 
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
@@ -230,7 +233,7 @@ export default function OrderBotDemo() {
                 timestamp: new Date()
             }]);
             setIsTyping(false);
-        }, 800 + Math.random() * 700);
+        }, randomDelay());
     };
 
     const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
@@ -314,7 +317,7 @@ export default function OrderBotDemo() {
                                 )}
 
                                 {/* 2. Product List (Category View) - NEW */}
-                                {msg.type === 'product_list' && msg.data && (
+                                {msg.type === 'product_list' && Array.isArray(msg.data) && (
                                     <div className="flex flex-col gap-2 mt-2">
                                         {msg.data.map((item: MenuItem) => (
                                             <div key={item.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
@@ -342,7 +345,7 @@ export default function OrderBotDemo() {
                                 )}
 
                                 {/* 3. Upsell Card */}
-                                {msg.type === 'upsell' && msg.data && (
+                                {msg.type === 'upsell' && msg.data && !Array.isArray(msg.data) && (
                                     <div className="bg-white p-3 rounded-xl border border-orange-100 shadow-md mt-2 flex items-center gap-3 max-w-[280px]">
                                         <div className="w-14 h-14 bg-orange-50 rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
                                             🍔
@@ -365,7 +368,7 @@ export default function OrderBotDemo() {
                                 )}
 
                                 {/* 4. Bill / Cart */}
-                                {(msg.type === 'bill' || (msg as any).isBill) && (
+                                {(msg.type === 'bill' || msg.isBill) && (
                                     <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden w-64 mt-2">
                                         <div className="bg-slate-50 p-4 border-b border-dashed border-slate-200 flex flex-col items-center">
                                             <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2">

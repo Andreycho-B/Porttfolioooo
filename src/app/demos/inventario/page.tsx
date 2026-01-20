@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package, Users, BarChart, Search, Bell, Settings, Filter, Plus } from "lucide-react";
+import { ArrowLeft, Package, Users, BarChart, Search, Bell, Settings, Plus, Menu } from "lucide-react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { motion, AnimatePresence } from "framer-motion";
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 
 // Mock Data
 const dashboardData = [
@@ -26,11 +26,65 @@ const initialProducts = [
     { id: 5, name: "Docking Station", sku: "DS-TH-01", status: "Agotado", qty: 0, price: "$200" },
 ];
 
+interface SidebarContentProps {
+    activeTab: string;
+    setActiveTab: (id: string) => void;
+    setIsSidebarOpen: (open: boolean) => void;
+}
+
+const SidebarContent = ({ activeTab, setActiveTab, setIsSidebarOpen }: SidebarContentProps) => (
+    <div className="flex flex-col h-full justify-between">
+        <div>
+            <div className="text-2xl font-bold mb-10 flex items-center gap-2 tracking-tight">
+                <div className="bg-blue-600 p-1.5 rounded-lg">
+                    <Package size={20} className="text-white" />
+                </div>
+                NexusInv
+            </div>
+            <div className="space-y-2">
+                {[
+                    { id: 'dashboard', icon: BarChart, label: 'Dashboard' },
+                    { id: 'inventory', icon: Package, label: 'Inventario' },
+                    { id: 'suppliers', icon: Users, label: 'Proveedores' },
+                ].map((item) => (
+                    <div
+                        key={item.id}
+                        onClick={() => {
+                            setActiveTab(item.id);
+                            setIsSidebarOpen(false);
+                        }}
+                        className={`
+                        rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all duration-200
+                        ${activeTab === item.id
+                                ? 'bg-blue-600 shadow-lg shadow-blue-900/50 translate-x-1'
+                                : 'hover:bg-slate-800 text-slate-400 hover:text-white'}
+                    `}
+                    >
+                        <item.icon size={18} /> {item.label}
+                    </div>
+                ))}
+            </div>
+        </div>
+        <div className="pt-6 border-t border-slate-800">
+            <div className="flex items-center gap-3 p-3 text-slate-400 hover:text-white cursor-pointer transition-colors">
+                <Settings size={18} /> Configuración
+            </div>
+        </div>
+    </div>
+);
+
 export default function InventoryDemo() {
     const [activeTab, setActiveTab] = useState("dashboard");
     const [products, setProducts] = useState(initialProducts);
     const [searchTerm, setSearchTerm] = useState("");
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const [mounted, setMounted] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setMounted(true), 0);
+        return () => clearTimeout(timer);
+    }, []);
 
     const handleSort = (key: keyof typeof initialProducts[0]) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -54,54 +108,49 @@ export default function InventoryDemo() {
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex text-sm">
-            {/* Sidebar */}
-            <motion.div
-                initial={{ x: -250 }}
-                animate={{ x: 0 }}
-                className="fixed left-0 top-0 bottom-0 w-64 bg-slate-900 text-white p-6 hidden md:flex flex-col justify-between z-20"
-            >
-                <div>
-                    <div className="text-2xl font-bold mb-10 flex items-center gap-2 tracking-tight">
-                        <div className="bg-blue-600 p-1.5 rounded-lg">
-                            <Package size={20} className="text-white" />
-                        </div>
-                        NexusInv
-                    </div>
-                    <div className="space-y-2">
-                        {[
-                            { id: 'dashboard', icon: BarChart, label: 'Dashboard' },
-                            { id: 'inventory', icon: Package, label: 'Inventario' },
-                            { id: 'suppliers', icon: Users, label: 'Proveedores' },
-                        ].map((item) => (
-                            <div
-                                key={item.id}
-                                onClick={() => setActiveTab(item.id)}
-                                className={`
-                            rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all duration-200
-                            ${activeTab === item.id
-                                        ? 'bg-blue-600 shadow-lg shadow-blue-900/50 translate-x-1'
-                                        : 'hover:bg-slate-800 text-slate-400 hover:text-white'}
-                        `}
-                            >
-                                <item.icon size={18} /> {item.label}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div className="pt-6 border-t border-slate-800">
-                    <div className="flex items-center gap-3 p-3 text-slate-400 hover:text-white cursor-pointer transition-colors">
-                        <Settings size={18} /> Configuración
-                    </div>
-                </div>
-            </motion.div>
+            {/* Desktop Sidebar */}
+            <div className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-slate-900 text-white p-6 flex-col justify-between z-20">
+                <SidebarContent activeTab={activeTab} setActiveTab={setActiveTab} setIsSidebarOpen={setIsSidebarOpen} />
+            </div>
+
+            {/* Mobile Sidebar */}
+            <AnimatePresence>
+                {isSidebarOpen && (
+                    <>
+                        <motion.div
+                            initial={{ x: -300 }}
+                            animate={{ x: 0 }}
+                            exit={{ x: -300 }}
+                            className="fixed left-0 top-0 bottom-0 w-64 bg-slate-900 text-white p-6 flex flex-col z-50 md:hidden"
+                        >
+                            <SidebarContent activeTab={activeTab} setActiveTab={setActiveTab} setIsSidebarOpen={setIsSidebarOpen} />
+                        </motion.div>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                            onClick={() => setIsSidebarOpen(false)}
+                        />
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Main Content */}
             <div className="flex-1 md:ml-64 p-8 overflow-y-auto">
                 {/* Header */}
                 <header className="flex justify-between items-center mb-10">
                     <div className="flex items-center gap-4">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="md:hidden text-slate-500 hover:text-slate-900 -ml-2"
+                            onClick={() => setIsSidebarOpen(true)}
+                        >
+                            <Menu size={20} />
+                        </Button>
                         <Link href="/proyectos">
-                            <Button variant="ghost" size="icon" className="text-slate-500 hover:text-slate-900">
+                            <Button variant="ghost" size="icon" className="text-slate-500 hover:text-slate-900 hidden md:flex">
                                 <ArrowLeft size={20} />
                             </Button>
                         </Link>
@@ -113,7 +162,7 @@ export default function InventoryDemo() {
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <div className="relative">
+                        <div className="relative hidden sm:block">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                             <input
                                 type="text"
@@ -170,22 +219,24 @@ export default function InventoryDemo() {
                                 </select>
                             </div>
                             <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={dashboardData}>
-                                        <defs>
-                                            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
-                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                                        <Tooltip
-                                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                        />
-                                        <Area type="monotone" dataKey="sales" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                {mounted && (
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                        <AreaChart data={dashboardData}>
+                                            <defs>
+                                                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
+                                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                                            <Tooltip
+                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                            />
+                                            <Area type="monotone" dataKey="sales" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                )}
                             </div>
                         </div>
 
@@ -195,7 +246,7 @@ export default function InventoryDemo() {
 
                             <div>
                                 <h3 className="font-bold text-lg mb-1">Nexus AI</h3>
-                                <p className="text-blue-100 opacity-80 leading-relaxed mb-6">Su inventario está optimizado. Se predice un aumento del 15% en la demanda de "Laptops" para la próxima semana.</p>
+                                <p className="text-blue-100 opacity-80 leading-relaxed mb-6">Su inventario está optimizado. Se predice un aumento del 15% en la demanda de &quot;Laptops&quot; para la próxima semana.</p>
                             </div>
 
                             <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
@@ -263,7 +314,7 @@ export default function InventoryDemo() {
                         </div>
                         {filteredProducts.length === 0 && (
                             <div className="p-8 text-center text-slate-400 text-sm">
-                                No se encontraron productos que coincidan con "{searchTerm}"
+                                No se encontraron productos que coincidan con &quot;{searchTerm}&quot;
                             </div>
                         )}
                     </div>
