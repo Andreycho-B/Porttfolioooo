@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, LayoutDashboard, Users, CreditCard, Activity, TrendingUp, Download, Calendar } from "lucide-react";
+import { ArrowLeft, Users, CreditCard, Activity, TrendingUp, Download, Calendar } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from "recharts";
@@ -27,6 +27,13 @@ const revenueData = [
 ];
 
 export default function DashboardDemo() {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setMounted(true), 0);
+        return () => clearTimeout(timer);
+    }, []);
+
     return (
         <div className="min-h-screen bg-neutral-950 text-white font-sans p-6 md:p-10">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
@@ -88,19 +95,21 @@ export default function DashboardDemo() {
                 >
                     <h3 className="text-xl font-bold mb-6">Resumen de Ventas</h3>
                     <div className="h-[350px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={salesData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                                <XAxis dataKey="name" stroke="#525252" tick={{ fill: '#737373', fontSize: 12 }} />
-                                <YAxis stroke="#525252" tick={{ fill: '#737373', fontSize: 12 }} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#171717', border: '1px solid #262626', borderRadius: '12px', color: '#fff' }}
-                                    itemStyle={{ color: '#fff' }}
-                                />
-                                <Line type="monotone" dataKey="uv" stroke="#3b82f6" strokeWidth={4} dot={{ r: 4, fill: '#171717', strokeWidth: 2 }} activeDot={{ r: 6, fill: '#3b82f6' }} />
-                                <Line type="monotone" dataKey="pv" stroke="#8b5cf6" strokeWidth={4} dot={{ r: 4, fill: '#171717', strokeWidth: 2 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
+                        {mounted && (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <LineChart data={salesData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#525252" tick={{ fill: '#737373', fontSize: 12 }} />
+                                    <YAxis stroke="#525252" tick={{ fill: '#737373', fontSize: 12 }} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#171717', border: '1px solid #262626', borderRadius: '12px', color: '#fff' }}
+                                        itemStyle={{ color: '#fff' }}
+                                    />
+                                    <Line type="monotone" dataKey="uv" stroke="#3b82f6" strokeWidth={4} dot={{ r: 4, fill: '#171717', strokeWidth: 2 }} activeDot={{ r: 6, fill: '#3b82f6' }} />
+                                    <Line type="monotone" dataKey="pv" stroke="#8b5cf6" strokeWidth={4} dot={{ r: 4, fill: '#171717', strokeWidth: 2 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </motion.div>
 
@@ -112,17 +121,19 @@ export default function DashboardDemo() {
                 >
                     <h3 className="text-xl font-bold mb-6">Ingresos Mensuales</h3>
                     <div className="h-[350px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={revenueData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                                <XAxis dataKey="name" stroke="#525252" tick={{ fill: '#737373', fontSize: 12 }} />
-                                <Tooltip
-                                    cursor={{ fill: 'transparent' }}
-                                    contentStyle={{ backgroundColor: '#171717', border: '1px solid #262626', borderRadius: '12px' }}
-                                />
-                                <Bar dataKey="total" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {mounted && (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <BarChart data={revenueData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#525252" tick={{ fill: '#737373', fontSize: 12 }} />
+                                    <Tooltip
+                                        cursor={{ fill: 'transparent' }}
+                                        contentStyle={{ backgroundColor: '#171717', border: '1px solid #262626', borderRadius: '12px' }}
+                                    />
+                                    <Bar dataKey="total" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </motion.div>
             </div>
